@@ -2,42 +2,53 @@ import requests
 import json
 import customtkinter as ctk
 
+BASE_URL = "http://www.dnd5eapi.co"
+
 # Function to fetch spell data from the D&D 5e API
-def fetch_spells(spell_name):
-    url = f"http://www.dnd5eapi.co/api/spells?name={spell_name}"
-    response = requests.get(url)
+def fetch_spells(spell_name=None, url=None):
+    if url:
+        # Prepend the BASE_URL to the provided relative URL
+        response = requests.get(BASE_URL + url)
+    else:
+        response = requests.get(f"{BASE_URL}/api/spells?name={spell_name}")
+
     if response.status_code == 200:
         data = json.loads(response.text)
         return data
     else:
         print(f"Failed to get data: {response.status_code}")
         return None
+
+
     
 spell_details = {}
 
-# Function to search for a spell using the GUI
+# Function to search for a spells using the GUI
 def search_spell():
     global spell_details
-    spell_name = spell_name_entry.get()
-    spell_data = fetch_spells(spell_name)  
-    print(spell_data)  # Add the print statement here
-    # Clear previous search results
+
+    spell_name = spell_name_entry.get() 
+    spell_data = fetch_spells(spell_name)
+
+    # Clear existing spell names from the scrollable frame
     for widget in scrollable_frame.winfo_children():
         widget.destroy()
-    
-    spell_data = fetch_spells(spell_name)
-    
+
     if spell_data and 'results' in spell_data:
         for spell in spell_data['results']:
-            label = ctk.CTkLabel(scrollable_frame, text=spell['name'], cursor="hand2")
-            label.pack(pady=5)
+            label = ctk.CTkLabel(scrollable_frame, text=spell['name'])
             label.bind("<Button-1>", lambda e, s=spell: display_spell_details(s))
-            spell_details[spell['name']] = spell
+            label.pack(fill="x", pady=2)
     else:
         label = ctk.CTkLabel(scrollable_frame, text="No spell found.")
-        label.pack(pady=5)
+        label.pack(pady=10)
 
 def display_spell_details(spell):
+    # Fetch full details of the spell
+    full_spell_data = fetch_spells(url=spell['url'])
+    # PRINT
+    print(full_spell_data)  
+
     # Clear existing details
     for widget in details_frame.winfo_children():
         widget.destroy()
@@ -47,8 +58,11 @@ def display_spell_details(spell):
     name_label.pack(pady=10)
 
     # Spell description
-    description = spell.get('desc', ["Description not available."])[0]  # Default to "Description not available."
-    desc_label = ctk.CTkLabel(details_frame, text=spell['desc'][0])  # Displaying the first line of description
+    description = "\n\n".join(full_spell_data.get('desc', ["Description not available."]))
+
+    desc_label = ctk.CTkLabel(details_frame, text=full_spell_data.get('desc', ["Description not available."])[0])
+    desc_label = ctk.CTkLabel(details_frame, text=description, wraplength=400)
+
     desc_label.pack(pady=10)
 
 # Function to handle Enter key press
@@ -64,8 +78,9 @@ def delayed_search():
     if search_after_id:
         spell_name_entry.after_cancel(search_after_id)
 
-    # Schedule the new search
-    search_after_id = spell_name_entry.after(300, search_spell)
+    # Schedule the new search .after(ms)
+    search_after_id = spell_name_entry.after(200, search_spell)
+
 
 # customTkinter GUI setup
 app = ctk.CTk()
@@ -89,7 +104,7 @@ scrollable_frame = ctk.CTkScrollableFrame(frame)
 scrollable_frame.grid(row=1, columnspan=2, pady=20, sticky="w")
 
 # Create a frame for displaying spell details
-details_frame = ctk.CTkFrame(app)
+details_frame = ctk.CTkScrollableFrame(app)
 details_frame.place(relx=0.6, rely=0.5, anchor="center", relwidth=0.35, relheight=0.5)
 
 app.mainloop()
