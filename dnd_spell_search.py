@@ -61,39 +61,47 @@ def display_spell_details(spell):
     casting_time = full_spell_data.get('casting_time', 'Unknown Casting Time')
     level = full_spell_data.get('level', 0)
     level_display = "Cantrip" if level == 0 else f"Level {level}"
-    casting_level_label = ctk.CTkLabel(details_frame, text=f"{level_display} | Casting Time: {casting_time}")
+    concentration_text = f"Concentration: {'Yes' if full_spell_data.get('concentration', False) else 'No'}"
+    casting_level_label = ctk.CTkLabel(details_frame, text=f"{level_display} | Casting Time: {casting_time} | {concentration_text}")
     casting_level_label.pack(pady=10)
 
-    # Spell damage (if available) and area of effect
-    damage = full_spell_data.get('damage', {}).get('damage_type', {}).get('name', 'No Damage Info')
+    # Damage
+    damage_info = full_spell_data.get('damage', {}).get('damage_type', {}).get('name')
+    if damage_info:
+        damage_text = f"Damage: {damage_info}"
+    else:
+        damage_text = ""
 
-    # Extract the area of effect type and size
-    area_of_effect_type = full_spell_data.get('area_of_effect', {}).get('type', 'Unknown Area')
-    area_of_effect_size = full_spell_data.get('area_of_effect', {}).get('size', '')
+    # Area of Effect
+    area_of_effect_type = full_spell_data.get('area_of_effect', {}).get('type')
+    area_of_effect_size = full_spell_data.get('area_of_effect', {}).get('size')
+    if area_of_effect_type and area_of_effect_size:
+        area_of_effect_text = f"Area of Effect: {area_of_effect_type} ({area_of_effect_size})"
+    elif area_of_effect_type:
+        area_of_effect_text = f"Area of Effect: {area_of_effect_type}"
+    else:
+        area_of_effect_text = ""
 
-    # Combine type and size for display
-    area_of_effect_display = f"{area_of_effect_type} ({area_of_effect_size})" if area_of_effect_size else area_of_effect_type
-
-    # Create the label
-    damage_area_label = ctk.CTkLabel(details_frame, text=f"Damage: {damage} | Area of Effect: {area_of_effect_display}")
-    damage_area_label.pack(pady=10)
-
-
-
-    # School of magic
-    school = full_spell_data.get('school', {}).get('name', 'Unknown School')
-    school_label = ctk.CTkLabel(details_frame, text=f"School: {school}")
-    school_label.pack(pady=10)
+    # Combine Damage and Area of Effect and display them
+    details_texts = [text for text in [damage_text, area_of_effect_text] if text]  # filter out empty strings
+    combined_text = " | ".join(details_texts)
+    if combined_text:  # Only pack the label if there's content
+        combined_label = ctk.CTkLabel(details_frame, text=combined_text)
+        combined_label.pack(pady=10)
 
     # Displaying the range, components, material, duration, and concentration
     range_text = f"Range: {full_spell_data.get('range', 'N/A')}"
     components_text = f"Components: {''.join(full_spell_data.get('components', []))}"
     material_text = full_spell_data.get('material', '')
     duration_text = f"Duration: {full_spell_data.get('duration', 'N/A')}"
-    concentration_text = f"Concentration: {'Yes' if full_spell_data.get('concentration', 'no') == 'yes' else 'No'}"
-    details_text = f"{range_text}  |  {components_text}  |  {material_text}  |  {duration_text}  |  {concentration_text}"
+    details_text = f"{range_text}  |  {components_text}  |  {material_text}  |  {duration_text}"
     details_label = ctk.CTkLabel(details_frame, text=details_text, wraplength=450)  # Adjust 450 to your frame's width
     details_label.pack(pady=10)
+
+    # School of magic
+    school = full_spell_data.get('school', {}).get('name', 'Unknown School')
+    school_label = ctk.CTkLabel(details_frame, text=f"School: {school}")
+    school_label.pack(pady=10)
 
     # Spell description
     description = "\n\n".join(full_spell_data.get('desc', ["Description not available."]))
