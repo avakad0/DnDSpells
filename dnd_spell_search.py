@@ -135,7 +135,8 @@ def delayed_search(event=None):
 #
 
 def display_spell_details(spell, details_frame):
-    dice_type = None  # Initialize dice_type at the beginning
+    dice_type = None
+
     # Fetch complete spell details
     full_spell_data = fetch_spells(url=spell['url'])
 
@@ -144,7 +145,7 @@ def display_spell_details(spell, details_frame):
         widget.destroy()
 
     # Spell name
-    name_label = ctk.CTkLabel(details_frame, text=spell['name'], font=("Arial", 18))
+    name_label = ctk.CTkLabel(details_frame, text=spell['name'], font=("Nodesto Caps Condensed", 32))
     name_label.pack(pady=0)
 
     # Separator
@@ -155,8 +156,8 @@ def display_spell_details(spell, details_frame):
     # Classes
     classes_list = full_spell_data.get('classes', [])
     class_names = ', '.join([cls['name'] for cls in classes_list])
-    classes_label = ctk.CTkLabel(details_frame, text=f"Classes: {class_names}")
-    classes_label.pack(pady=0)
+    classes_label = ctk.CTkLabel(details_frame, font=("Bookinsanity", 12, "italic"), text=f"Classes: {class_names}")
+    classes_label.pack(pady=0, ipady=0)
 
     # Level and School of magic
     level = full_spell_data.get('level', 0)
@@ -171,7 +172,24 @@ def display_spell_details(spell, details_frame):
     school_label = ctk.CTkLabel(details_frame, text=f"{level_display} {school} Spell")
     school_label.pack(pady=5)
 
-    # Damage calculations and display
+    # Damage type color mapping // CHANGE COLORS
+    damage_color_map = {
+        "acid": "#A6E22E",  # Bright Green
+        "bludgeoning": "#FD971F",  # Orange
+        "cold": "#66D9EF",  # Cyan
+        "fire": "#F92672",  # Red
+        "force": "#AE81FF",  # Purple
+        "lightning": "#FD971F",  # Orange
+        "necrotic": "#676E79",  # Dark Gray
+        "piercing": "#FFE792",  # Yellow
+        "poison": "#529B2F",  # Dark Green
+        "psychic": "#AE81FF",  # Purple
+        "radiant": "#E6DB74",  # Light Yellow
+        "slashing": "#FFE792",  # Yellow
+        "thunder": "#FD971F"  # Orange
+    }
+
+    # Damage calculations
     def calculate_damage_range(damage_formula):
         try:
             num_dice, dice_type = map(int, damage_formula.split('d'))
@@ -188,7 +206,6 @@ def display_spell_details(spell, details_frame):
 
     # Check for damage at character level
     if damage_at_character_level:
-        # Here, we just take the base damage (level 1 for most spells, might vary for some)
         damage_formula = damage_at_character_level.get("1")
         if not damage_formula:
             damage_formula = list(damage_at_character_level.values())[0]  # Get first available value if "1" is missing
@@ -198,30 +215,37 @@ def display_spell_details(spell, details_frame):
         if lowest_slot_level:
             damage_formula = damage_at_slot_level[str(lowest_slot_level)]
 
+    # Min-Max Damage formula display
     if damage_formula:
         min_damage, max_damage, dice_type = calculate_damage_range(damage_formula)
-        damage_text_min_max = ctk.CTkLabel(details_frame, text=f"{min_damage} - {max_damage} Damage", font=("Arial", 14))
+        damage_text_min_max = ctk.CTkLabel(details_frame, text=f"{min_damage} - {max_damage} Damage", font=("Bookinsanity", 14))
         damage_text_min_max.pack(pady=5)
 
     # Only proceed if dice_type has been assigned
     if dice_type:
         dice_icon = get_dice_icon(dice_type)
         damage_text_formula = f" {damage_formula} {damage_type}"
-        formula_label = ctk.CTkLabel(details_frame, text=damage_text_formula, image=dice_icon, compound=LEFT)
+        damage_color = damage_color_map.get(damage_type, "#FFFFFF")
+        print("Damage Color:", damage_color)
+        formula_label = ctk.CTkLabel(details_frame, 
+                                 text=damage_text_formula, 
+                                 text_color=(damage_color),
+                                 image=dice_icon, 
+                                 compound=LEFT)
         formula_label.image = dice_icon  # Keep a reference to the image
-        formula_label.pack()  # Adjust positioning if needed
+        formula_label.pack()
 
 
     # Spell description
     description = "\n\n".join(full_spell_data.get('desc', ["Description not available."]))
-    desc_label = ctk.CTkLabel(details_frame, text=description, wraplength=400)
+    desc_label = ctk.CTkLabel(details_frame, text=description, font=("Bookinsanity", 14), wraplength=400)
     desc_label.pack(pady=5)
 
     # Higher level description (if available)
     higher_level_desc = full_spell_data.get('higher_level')
     if higher_level_desc:
         higher_description = "\n\n".join(higher_level_desc)
-        higher_level_label = ctk.CTkLabel(details_frame, text=higher_description, wraplength=400)
+        higher_level_label = ctk.CTkLabel(details_frame, text=higher_description, font=("Bookinsanity", 14), wraplength=400)
         higher_level_label.pack(pady=5)
 
     # Area of Effect
