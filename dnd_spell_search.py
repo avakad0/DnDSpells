@@ -61,6 +61,45 @@ def get_casting_time_icon(casting_time):
                             size=(10, 10))
     return None
 
+#
+# ALL THE SPELLS
+#
+#
+
+
+def on_spell_label_click(event, spell_name):
+    # Hide the all_spells_frame
+    all_spells_frame.pack_forget()
+    spell_url = spell_data.get(spell_name)
+    if spell_url:
+        display_spell_details({"name": spell_name, "url": spell_url}, details_frame)
+    details_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=20, pady=20)
+
+def make_label_clickable(label, spell_name):
+    label.bind("<Button-1>", lambda event: on_spell_label_click(event, spell_name))
+
+def show_all_spells():
+    # Hide other frames if needed
+    details_frame.pack_forget()
+
+    # Clear previous spells from the frame
+    for widget in all_spells_frame.winfo_children():
+        widget.destroy()
+
+    # Fetch and display all spells
+    all_spells_data = fetch_spells()
+    for spell in all_spells_data['results']:
+        lbl = ctk.CTkLabel(all_spells_frame, text=spell['name'])
+        lbl.pack(anchor='w', padx=10, pady=5)
+        make_label_clickable(lbl, spell['name'])
+
+    all_spells_frame.pack(fill=BOTH, expand=True)
+ 
+    # Retrieve cached spells
+    cache_key = f"{BASE_URL}/api/spells"
+    all_spells_data = cache.get(cache_key)
+        
+
 
 
 #
@@ -79,6 +118,7 @@ BASE_URL = "http://www.dnd5eapi.co"
 
 search_after_id = None
 
+
 #
 # API-Related Functions
 #
@@ -88,12 +128,20 @@ search_after_id = None
 def fetch_spells(spell_name=None, url=None):
     try:
         # Check if the response is in the cache
-        cache_key = url if url else f"{BASE_URL}/api/spells?name={spell_name}"
+        if url:
+            cache_key = url
+            target_url = BASE_URL + url
+        elif spell_name:
+            cache_key = f"{BASE_URL}/api/spells?name={spell_name}"
+            target_url = f"{BASE_URL}/api/spells?name={spell_name}"
+        else:
+            cache_key = f"{BASE_URL}/api/spells"
+            target_url = f"{BASE_URL}/api/spells"
+
         cached_response = cache.get(cache_key)
         if cached_response:
             return cached_response
 
-        target_url = BASE_URL + url if url else f"{BASE_URL}/api/spells?name={spell_name}"
         response = requests.get(target_url)
 
         print("Request URL:", target_url)  # Print the request URL for debugging
@@ -130,24 +178,46 @@ def get_spell_names():
             return [{"name": spell['name'], "url": spell['url']} for spell in data['results']]
     return []
 
+def cache_all_spells():
+    all_spells_data = fetch_spells()
+    cache_key = f"{BASE_URL}/api/spells"
+    cache[cache_key] = all_spells_data
+cache_all_spells()
+
+
+
 #
-# Live search function
-#
+# TOP BAR
+# Live Search Function/All button
 #
 
 spell_data = {spell['name']: spell['url'] for spell in get_spell_names()}
 
-entry = ctk.CTkEntry (app, width=400, placeholder_text="Search")
-entry.pack(padx=10, pady=10)
+# Group the 'All Spells' button and search bar together
+top_frame = ctk.CTkFrame(app)
+top_frame.pack(pady=10)
+
+all_spells_btn = ctk.CTkButton(top_frame, text="All Spells", command=show_all_spells)
+all_spells_btn.pack(side=RIGHT, padx=5)
+
+# Adjust the position of your search bar (entry) to be in this top_frame
+entry = ctk.CTkEntry(top_frame, width=400, placeholder_text="Search")
+entry.pack(side=LEFT)
 
 def on_spell_selected(spell_name):
+    all_spells_frame.pack_forget()  # Hide the all_spells_frame when a spell is selected
     spell_url = spell_data.get(spell_name)
     if spell_url:
         entry.delete(0, 'end')
         entry.insert(0, '')
         display_spell_details({"name": spell_name, "url": spell_url}, details_frame)
+    details_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=20, pady=20)
+
 
 CTkScrollableDropdown(entry, values=list(spell_data.keys()), command=on_spell_selected, autocomplete=True)
+
+all_spells_frame = ctk.CTkScrollableFrame(app)
+
 
 #
 # Display details of the selected spell
@@ -196,18 +266,18 @@ def display_spell_details(spell, details_frame):
     # Damage type color mapping // CHANGE COLORS
     damage_color_map = {
         "Acid": "#A6E22E",  # Bright Green
-        "Bludgeoning": "#FD971F",  # Orange
+        "Bludgeoning": "#7B7D7D",  # Grey
         "Cold": "#66D9EF",  # Cyan
-        "Fire": "#F92672",  # Red
-        "Force": "#AE81FF",  # Purple
-        "Lightning": "#FD971F",  # Orange
-        "Necrotic": "#676E79",  # Dark Gray
-        "Piercing": "#FFE792",  # Yellow
+        "Fire": "#F57C00",  # Orange
+        "Force": "#EF5350",  # Red
+        "Lightning": "#2196F3",  # Blue
+        "Necrotic": "#33FF00",  # Dark Gray
+        "Piercing": "#7B7D7D",  # Yellow
         "Poison": "#529B2F",  # Dark Green
-        "Psychic": "#AE81FF",  # Purple
+        "Psychic": "#FF00FF",  # Magenta
         "Radiant": "#E6DB74",  # Light Yellow
-        "Slashing": "#FFE792",  # Yellow
-        "Thunder": "#FD971F"  # Orange
+        "Slashing": "#7B7D7D",  # Grey
+        "Thunder": "#AE81FF"  # Purple
     }
 
     # Damage calculations
@@ -300,7 +370,7 @@ def display_spell_details(spell, details_frame):
         concentration_text = " Concentration"
         concentration_icon = ctk.CTkImage(light_image=Image.open("img/eye.png"),
                                           dark_image=image_data,
-                                          size=(25, 25))
+                                          size=(30, 30))
     else:
         concentration_text = ""
         concentration_icon = ""
