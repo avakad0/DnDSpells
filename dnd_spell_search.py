@@ -10,6 +10,7 @@ import customtkinter as ctk
 from CTkScrollableDropdown import *
 from cachetools import TTLCache
 from PIL import Image, ImageTk
+import tempfile
 
 
 
@@ -18,10 +19,49 @@ from PIL import Image, ImageTk
 #
 #
 
-def get_dice_icon(dice_type, size=(40, 40)):
-    image = Image.open(f"img/{dice_type}.png")
-    image_resized = image.resize(size)
-    return ImageTk.PhotoImage(image_resized)
+def get_dice_icon(dice_type, color=None):
+    image_path = f"img/{dice_type}.png"
+    image = Image.open(image_path).convert("RGBA")
+    
+    if color:
+        r, g, b, alpha = image.split()
+        red, green, blue = Image.new('L', r.size, color[0]), Image.new('L', r.size, color[1]), Image.new('L', r.size, color[2])
+        image = Image.merge('RGBA', (red, green, blue, alpha))
+    
+    ctk_image = ctk.CTkImage(light_image=image, dark_image=image, size=(40, 40))
+    return ctk_image
+
+def recolor_image(image_path, target_color):
+    with Image.open(image_path) as image:
+        data = image.convert("RGBA")
+        datas = data.getdata()
+
+        new_data = []
+        for item in datas:
+            # change all non-transparent pixels to target color
+            if item[3] > 0:
+                new_data.append(target_color + (item[3],))
+            else:
+                new_data.append(item)
+
+        data.putdata(new_data)
+        
+        return data
+    
+def get_casting_time_icon(casting_time):
+    if "1 action" in casting_time.lower():
+        image_data = recolor_image("img/circle.png", (0, 255, 0))  # RGB for green
+        return ctk.CTkImage(light_image=image_data,
+                            dark_image=image_data,
+                            size=(10, 10))
+    elif "1 bonus action" in casting_time.lower():
+        image_data = recolor_image("img/triangle.png", (255, 165, 0))  # RGB for orange
+        return ctk.CTkImage(light_image=image_data,
+                            dark_image=image_data,
+                            size=(10, 10))
+    return None
+
+
 
 #
 # GUI SET UP
@@ -30,7 +70,8 @@ def get_dice_icon(dice_type, size=(40, 40)):
 
 app = ctk.CTk()
 app.title("D&D 5e Spell Search")
-app.geometry("1000x800")
+app.geometry("600x800")
+
 
 cache = TTLCache(maxsize=100, ttl=3600)
 
@@ -89,8 +130,6 @@ def get_spell_names():
             return [{"name": spell['name'], "url": spell['url']} for spell in data['results']]
     return []
 
-
-
 #
 # Live search function
 #
@@ -105,29 +144,10 @@ def on_spell_selected(spell_name):
     spell_url = spell_data.get(spell_name)
     if spell_url:
         entry.delete(0, 'end')
-        entry.insert(0, spell_name)
+        entry.insert(0, '')
         display_spell_details({"name": spell_name, "url": spell_url}, details_frame)
 
 CTkScrollableDropdown(entry, values=list(spell_data.keys()), command=on_spell_selected, autocomplete=True)
-
-def delayed_search(event=None):
-    """
-    Delay search results
-    """
-    global search_after_id
-
-    # If there's an existing scheduled search, cancel it
-    if search_after_id:
-        app.after_cancel(search_after_id)
-
-    # Schedule the update_dropdown function after a short delay (e.g., 500ms)
-    search_after_id = app.after(500, update_dropdown)
-
-    def update_dropdown():
-        current_input = entry.get().lower()
-        updated_values = [spell for spell in get_spell_names() if current_input in spell.lower()]
-
-    entry.bind("<KeyRelease>", delayed_search)
 
 #
 # Display details of the selected spell
@@ -139,6 +159,7 @@ def display_spell_details(spell, details_frame):
 
     # Fetch complete spell details
     full_spell_data = fetch_spells(url=spell['url'])
+    print(full_spell_data)
 
     # Clear existing details
     for widget in details_frame.winfo_children():
@@ -169,24 +190,24 @@ def display_spell_details(spell, details_frame):
         level_display = f"Level {level}"
 
     school = full_spell_data.get('school', {}).get('name', '')
-    school_label = ctk.CTkLabel(details_frame, text=f"{level_display} {school} Spell")
+    school_label = ctk.CTkLabel(details_frame, text=f"{level_display} {school} Spell", font=('Scaly Sans', 12))
     school_label.pack(pady=5)
 
     # Damage type color mapping // CHANGE COLORS
     damage_color_map = {
-        "acid": "#A6E22E",  # Bright Green
-        "bludgeoning": "#FD971F",  # Orange
-        "cold": "#66D9EF",  # Cyan
-        "fire": "#F92672",  # Red
-        "force": "#AE81FF",  # Purple
-        "lightning": "#FD971F",  # Orange
-        "necrotic": "#676E79",  # Dark Gray
-        "piercing": "#FFE792",  # Yellow
-        "poison": "#529B2F",  # Dark Green
-        "psychic": "#AE81FF",  # Purple
-        "radiant": "#E6DB74",  # Light Yellow
-        "slashing": "#FFE792",  # Yellow
-        "thunder": "#FD971F"  # Orange
+        "Acid": "#A6E22E",  # Bright Green
+        "Bludgeoning": "#FD971F",  # Orange
+        "Cold": "#66D9EF",  # Cyan
+        "Fire": "#F92672",  # Red
+        "Force": "#AE81FF",  # Purple
+        "Lightning": "#FD971F",  # Orange
+        "Necrotic": "#676E79",  # Dark Gray
+        "Piercing": "#FFE792",  # Yellow
+        "Poison": "#529B2F",  # Dark Green
+        "Psychic": "#AE81FF",  # Purple
+        "Radiant": "#E6DB74",  # Light Yellow
+        "Slashing": "#FFE792",  # Yellow
+        "Thunder": "#FD971F"  # Orange
     }
 
     # Damage calculations
@@ -201,6 +222,8 @@ def display_spell_details(spell, details_frame):
     damage_at_slot_level = damage_data.get('damage_at_slot_level', {})
     damage_at_character_level = damage_data.get('damage_at_character_level', {})
     damage_type = damage_data.get('damage_type', {}).get('name', "")
+    damage_color = damage_color_map.get(damage_type, "#FFFFFF")
+
     
     damage_formula = None
 
@@ -218,23 +241,21 @@ def display_spell_details(spell, details_frame):
     # Min-Max Damage formula display
     if damage_formula:
         min_damage, max_damage, dice_type = calculate_damage_range(damage_formula)
-        damage_text_min_max = ctk.CTkLabel(details_frame, text=f"{min_damage} - {max_damage} Damage", font=("Bookinsanity", 14))
+        damage_text_min_max = ctk.CTkLabel(details_frame, text=f"{min_damage} - {max_damage} Damage", font=("Bookinsanity", 16))
         damage_text_min_max.pack(pady=5)
 
     # Only proceed if dice_type has been assigned
     if dice_type:
-        dice_icon = get_dice_icon(dice_type)
+        dice_icon = get_dice_icon(dice_type, color=tuple(int(damage_color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)))
         damage_text_formula = f" {damage_formula} {damage_type}"
-        damage_color = damage_color_map.get(damage_type, "#FFFFFF")
-        print("Damage Color:", damage_color)
         formula_label = ctk.CTkLabel(details_frame, 
                                  text=damage_text_formula, 
+                                 font=("Scaly Sans", 14),
                                  text_color=(damage_color),
                                  image=dice_icon, 
                                  compound=LEFT)
         formula_label.image = dice_icon  # Keep a reference to the image
         formula_label.pack()
-
 
     # Spell description
     description = "\n\n".join(full_spell_data.get('desc', ["Description not available."]))
@@ -247,6 +268,15 @@ def display_spell_details(spell, details_frame):
         higher_description = "\n\n".join(higher_level_desc)
         higher_level_label = ctk.CTkLabel(details_frame, text=higher_description, font=("Bookinsanity", 14), wraplength=400)
         higher_level_label.pack(pady=5)
+
+    # Duration
+    duration = full_spell_data.get('duration')
+    if duration:
+        duration_text = (duration)
+    else:
+        duration_text = ""
+    duration_label = ctk.CTkLabel(details_frame, text=duration_text)
+    duration_label.pack(pady=5)
 
     # Area of Effect
     area_of_effect_type = full_spell_data.get('area_of_effect', {}).get('type')
@@ -264,20 +294,79 @@ def display_spell_details(spell, details_frame):
 
     # Range, DC Save, Area of Effect, and Concentration
     range_text = f"Range: {full_spell_data.get('range', 'N/A')}"
-    concentration_text = f"Concentration: {'Yes' if full_spell_data.get('concentration', False) else 'No'}"
-    details_text = f"{range_text}  |  Area: {area_of_effect_text}  |  {dc_type}  |  {concentration_text}"
-    details_label = ctk.CTkLabel(details_frame, text=details_text, wraplength=450)
-    details_label.pack(pady=5)
-
-    # Casting Time and Spell Slot Level
-    casting_time = full_spell_data.get('casting_time', '')
-    # Update the text depending on the spell level
-    if level == 0:
-        level_display = "Cantrip"
+    concentration = full_spell_data.get('concentration', False)
+    if concentration:
+        image_data = recolor_image("img/eye.png", (255, 255, 255))
+        concentration_text = " Concentration"
+        concentration_icon = ctk.CTkImage(light_image=Image.open("img/eye.png"),
+                                          dark_image=image_data,
+                                          size=(25, 25))
     else:
-        level_display = f"Level {level} Spell Slot"
-    casting_time_label = ctk.CTkLabel(details_frame, text=f"{casting_time} | {level_display}")
-    casting_time_label.pack(pady=5)
+        concentration_text = ""
+        concentration_icon = ""
+
+    details_line_frame = ctk.CTkFrame(details_frame)
+    details_line_frame.pack(pady=5)
+
+    padding_label_left = ctk.CTkLabel(details_line_frame, text="")
+    padding_label_left.pack(side=LEFT, expand=True)
+
+    range_label = ctk.CTkLabel(details_line_frame, text=range_text)
+    range_label.pack(side=LEFT, padx=(0, 5))
+
+    area_of_effect_label = ctk.CTkLabel(details_line_frame, text=area_of_effect_text)
+    area_of_effect_label.pack(side=LEFT, padx=(0, 5))
+
+    dc_type_label = ctk.CTkLabel(details_line_frame, text=dc_type)
+    dc_type_label.pack(side=LEFT, padx=(0, 5))
+
+    if concentration:
+        concentration_icon_label = ctk.CTkLabel(details_line_frame, image=concentration_icon, text="")
+        concentration_icon_label.image = concentration_icon  # keep a reference to the image
+        concentration_icon_label.pack(side=LEFT, padx=(0, 0))
+
+        concentration_text_label = ctk.CTkLabel(details_line_frame, text=concentration_text)
+        concentration_text_label.pack(side=LEFT, padx=(0, 0), pady=2)
+
+    padding_label_right = ctk.CTkLabel(details_line_frame, text="")
+    padding_label_right.pack(side=RIGHT, expand=True)
+
+    # Casting time and its icon
+    casting_time = full_spell_data.get('casting_time', '')
+    casting_time_icon = get_casting_time_icon(casting_time)
+
+    # Spell level and its icon
+    level = full_spell_data.get('level', 0)
+    if level != 0:
+        image_data = recolor_image("img/square.png", (0, 255, 255))  # RGB for blue
+        spell_icon = ctk.CTkImage(light_image=image_data, dark_image=image_data, size=(10, 10))
+        level_display = f" Level {level} Spell Slot"
+    else:
+        level = 0
+        spell_icon = None
+        level_display = f"| Cantrip"
+
+    # Frame to hold both labels
+    combined_frame = ctk.CTkFrame(details_frame)
+    combined_frame.pack(pady=5)
+
+    # Pack the casting time label into the frame
+    if casting_time_icon:
+        casting_time = casting_time.replace('1', '').replace('action', 'Action')
+        casting_time_label = ctk.CTkLabel(combined_frame, text=casting_time, image=casting_time_icon, compound=LEFT)
+        casting_time_label.pack(side=LEFT, padx=(0, 5))
+
+    # Pack the spell level label into the frame
+    if spell_icon:
+        spell_level_label = ctk.CTkLabel(combined_frame, text=level_display, image=spell_icon, compound=LEFT)
+        spell_level_label.pack(side=LEFT, padx=(0, 5))
+    else:
+        spell_level_label = ctk.CTkLabel(combined_frame, text=level_display)
+        spell_level_label.pack(side=LEFT, padx=(0, 5))
+
+
+
+
 
     # Components and Materials
     components_text = f"Components: {''.join(full_spell_data.get('components', []))}"
