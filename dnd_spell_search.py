@@ -195,14 +195,21 @@ spell_data = {spell['name']: spell['url'] for spell in get_spell_names()}
 
 # Group the 'All Spells' button and search bar together
 top_frame = ctk.CTkFrame(app)
-top_frame.pack(pady=10)
+top_frame.pack(pady=10, fill=X)  # fill in X direction
 
 all_spells_btn = ctk.CTkButton(top_frame, text="All Spells", command=show_all_spells)
-all_spells_btn.pack(side=RIGHT, padx=5)
+all_spells_btn.grid(row=0, column=2, sticky=E, padx=5)  # Place on the right
 
 # Adjust the position of your search bar (entry) to be in this top_frame
 entry = ctk.CTkEntry(top_frame, width=400, placeholder_text="Search")
-entry.pack(side=LEFT)
+entry.grid(row=0, column=1, sticky=W+E)  # Center
+
+# Adding a padding label to push the search bar towards the center
+padding_label = ctk.CTkLabel(top_frame, text="")
+padding_label.grid(row=0, column=0, sticky=W, padx=5)
+
+# Ensure that the middle column containing the search bar stretches as needed
+top_frame.grid_columnconfigure(1, weight=1)
 
 def on_spell_selected(spell_name):
     all_spells_frame.pack_forget()  # Hide the all_spells_frame when a spell is selected
@@ -441,7 +448,7 @@ def display_spell_details(spell, details_frame):
     # Components and Materials
     components_text = f"Components: {''.join(full_spell_data.get('components', []))}"
     material_text = full_spell_data.get('material', '')
-    comp_material_text = f"{components_text}  |  {material_text}"
+    comp_material_text = f"{components_text}    {material_text}"
     comp_material_label = ctk.CTkLabel(details_frame, text=comp_material_text, wraplength=450)
     comp_material_label.pack(pady=5)
 
